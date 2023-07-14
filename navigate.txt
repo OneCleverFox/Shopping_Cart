@@ -1,0 +1,5 @@
+cd C:\Users\rj18401\CODE\strapi-project\strapi-project\strapi-project
+
+npm run develop
+
+http://localhost:1337/api/products

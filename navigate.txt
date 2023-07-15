@@ -1,4 +1,4 @@
-cd C:\Users\rj18401\CODE\strapi-project\strapi-project\Shopping_Cart
+cd C:\Users\rj18401\CODE\strapi-project\strapi-project\Shopping_Cart\strapi-project
 
 npm run develop
 

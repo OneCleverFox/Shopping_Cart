@@ -114,15 +114,68 @@ const Products = (props) => {
   // Function to add an item to the cart
   const addToCart = (e) => {
     let name = e.target.name;
-    let item = items.filter((item) => item.name === name);
-    console.log(`add to Cart ${JSON.stringify(item)}`);
-    setCart([...cart, ...item]);
+    let item = items.find((item) => item.name === name);
+
+    // Check if the item already exists in the cart
+    let existingItem = cart.find((cartItem) => cartItem.name === item.name);
+
+    if (existingItem) {
+      // Check if the maximum quantity has been reached
+      if (existingItem.quantity < existingItem.instock) {
+        // Increase the quantity of the existing item
+        let updatedCart = cart.map((cartItem) => {
+          if (cartItem.name === existingItem.name) {
+            return { ...cartItem, quantity: cartItem.quantity + 1 };
+          }
+          return cartItem;
+        });
+
+        setCart(updatedCart);
+      } else {
+        console.log("Keine weiteren Produkte verfügbar");
+      }
+    } else {
+      // Check if the item is in stock
+      if (item.instock > 0) {
+        // Add the item to the cart with quantity 1
+        let newItem = { ...item, quantity: 1 };
+        setCart([...cart, newItem]);
+      } else {
+        console.log("Keine weiteren Produkte verfügbar");
+      }
+    }
+
+    // Decrease the stock count of the added item
+    setItems((prevItems) =>
+      prevItems.map((prevItem) => {
+        if (prevItem.name === name) {
+          return { ...prevItem, instock: prevItem.instock - 1 };
+        }
+        return prevItem;
+      })
+    );
   };
 
   // Function to delete an item from the cart
   const deleteCartItem = (index) => {
-    let newCart = cart.filter((item, i) => index !== i);
-    setCart(newCart);
+    let updatedCart = [...cart];
+    updatedCart[index].quantity -= 1;
+
+    if (updatedCart[index].quantity === 0) {
+      updatedCart.splice(index, 1);
+    }
+
+    setCart(updatedCart);
+
+    // Increase the stock count of the deleted item
+    setItems((prevItems) =>
+      prevItems.map((prevItem) => {
+        if (prevItem.name === cart[index].name) {
+          return { ...prevItem, instock: prevItem.instock + 1 };
+        }
+        return prevItem;
+      })
+    );
   };
 
   const photos = ["apple.png", "orange.png", "beans.png", "cabbage.png"];
@@ -134,50 +187,32 @@ const Products = (props) => {
       <Button variant="primary" size="large">
         {item.name}:{item.cost}
       </Button>
-      <input name={item.name} type="submit" onClick={addToCart} />
+      <input name={item.name} type="submit" onClick={addToCart} disabled={item.instock === 0} />
     </li>
   ));
 
   // Generate the list of cart items
   let cartList = cart.map((item, index) => (
-    <Accordion.Item key={1 + index} eventKey={1 + index}>
-      <Accordion.Header>{item.name}</Accordion.Header>
-      <Accordion.Body
-        onClick={() => deleteCartItem(index)}
-        eventKey={1 + index}
-      >
-        $ {item.cost} from {item.country}
+    <Accordion.Item key={1 + index} eventkey={1 + index}>
+      <Accordion.Header>{item.quantity}x {item.name}</Accordion.Header>
+      <Accordion.Body eventkey={1 + index}>
+        <div>$ {item.cost} from {item.country}</div>
+        <Button variant="danger" onClick={() => deleteCartItem(index)}>Delete</Button>
       </Accordion.Body>
     </Accordion.Item>
   ));
 
-  // Function to update a product in the database
-  const updateProduct = (id, updatedProduct) => {
-    const requestOptions = {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedProduct),
-    };
-
-    fetch(`http://localhost:1337/api/products/:${id}`, requestOptions)
-      .then(response => response.text())
-      .then(result => console.log(result))
-      .catch(error => console.log('Error updating product:', error));
-  };
-
   // Function to handle the checkout process
   const checkOut = () => {
-    let costs = cart.map((item) => item.cost);
+    let costs = cart.map((item) => item.cost * item.quantity);
     const reducer = (accum, current) => accum + current;
     let newTotal = costs.reduce(reducer, 0);
     console.log(`total updated to ${newTotal}`);
-
-    // Update the product in the cart
-    cart.forEach((item) => {
-      const updatedProduct = { ...item, instock: item.instock - 1 };
-      updateProduct(item.id, updatedProduct); // Replace `item.id` with the actual ID property of your product object
-    });
-
+    
+    if (newTotal > 0) {
+      setCart([]); // delete all products
+    }
+    
     return newTotal;
   };
 
@@ -189,7 +224,7 @@ const Products = (props) => {
         const { id, name, country, cost, instock } = item.attributes;
         return { id, name, country, cost, instock };
       });
-      setItems(updatedProducts);
+      setItems([...items, ...updatedProducts]);
     } catch (error) {
       console.error('Error restocking products:', error);
     }
@@ -200,7 +235,7 @@ const Products = (props) => {
     let total = checkOut();
     let final = cart.map((item, index) => (
       <div key={index} index={index}>
-        {item.name}
+        {item.quantity}x {item.name}
       </div>
     ));
     return { final, total };
@@ -219,8 +254,8 @@ const Products = (props) => {
         </Col>
         <Col>
           <h1>CheckOut </h1>
-          <Button onClick={checkOut}>CheckOut $ {renderFinalList().total}</Button>
-          <div> {renderFinalList().total > 0 && renderFinalList().final} </div>
+          <Button onClick={() => setTotal(checkOut())}>CheckOut $ {total}</Button>
+          <div> {total > 0 && renderFinalList().final} </div>
         </Col>
       </Row>
       <Row>
